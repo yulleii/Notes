@@ -552,3 +552,343 @@ public ListNode ReverseList(ListNode head) {
     return newList.next;
 }
 ```
+
+# 7.重建二叉树
+
+## 题目描述
+
+根据二叉树的前序遍历和中序遍历的结果，重建出该二叉树。假设输入的前序遍历和中序遍历的结果中都不含重复的数字。
+
+## 解题思路
+
+前序的首个位置是根结点，中序中根结点处于左子树和右子树的中间
+
+~~~java
+	private Map<Integer,Integer> indexForInOrders=new HashMap<>();
+    public  TreeNode reConstructBinaryTree(int[] pre,int[] in) {
+        for(int i=0;i<in.length;i++){
+            indexForInOrders.put(in[i],i);
+        }
+        return reConstructBinaryTree(pre,0,pre.length-1,0);
+    }
+    public  TreeNode  reConstructBinaryTree(int[] pre,int preL,int preR,int inL){
+        if(preL>preR)
+            return null;
+        TreeNode root=new TreeNode(pre[preL]);
+        int inIndex=indexForInOrders.get(root.val);
+        int leftTreeSize=inIndex-inL;
+        root.left=reConstructBinaryTree(pre,preL+1,preL+leftTreeSize,inL);
+       root.right=reConstructBinaryTree(pre,preL+leftTreeSize+1,preR,inL+leftTreeSize+1);
+        return root;
+    }
+~~~
+
+## 题目变形
+
+根据二叉树的前序遍历和中序遍历**不需要重建二叉树**来得到后序遍历数组
+
+~~~java
+private Map<Integer,Integer>indexForInOrders=new HashMap<>();
+public int[] getPosArray(int[]pre,int[]in){
+    if(pre==null || in==null)
+        return null;
+    int len=pre.length;
+    int[]pos=new int[len];
+    for(int i=0;i<len;i++)
+        indexForInOrders.put(in[i],i);
+    setPos();
+    return pos;
+}
+public int setPos(int[]pre,int pi,int pj,int inL,int si){
+    if(pi>pj)
+        return si;
+    s[si--]=p[pi];
+    int i=map.get(p[pi]);
+    int leftTreeSize=i-inL;
+    si=setPos(pre,pi+leftTreeSize+1,pj,inL+leftTreeSize+1,si);
+    return setPos(pre,pi+1,pi+leftTreeSize,inL,si)
+}
+~~~
+
+# 8. 二叉树的下一个结点
+
+## 题目描述
+
+给定一个二叉树和其中的一个结点，请找出中序遍历顺序的下一个结点并且返回。注意，树中的结点不仅包含左右子结点，同时包含指向父结点的指针。
+
+~~~java
+public class TreeLinkNode {
+
+    int val;
+    TreeLinkNode left = null;
+    TreeLinkNode right = null;
+    TreeLinkNode parent = null;
+
+    TreeLinkNode(int val) {
+        this.val = val;
+    }
+}
+~~~
+
+
+
+## 解题思路
+
+1.如果有右节点，则下一节点应该是右子树的最左边的节点
+
+2.如果没有右子树，先看node是不是node父节点的左孩子，如果是那么此时的node父节点就是node的后继节点。如果是右孩子节点，就向上查找直到发现一个左孩子节点或者移动到空节点时，停止查找。
+
+~~~java
+ 	public Node getNextNode(Node node){
+        if(node==null)
+            return node;
+        if(node.right!=null)
+            return LeftMost(node.right);
+        else{
+            Node parent=node.parent;
+            while(parent!=null && parent.left!=node){
+                node=parent;
+                parent=node.parent;
+            }
+            return parent;
+        }
+    }
+
+    public Node LeftMost(Node node){
+        if(node==null)
+            return node;
+        while(node.left!=null)
+            node=node.left;
+        return node;
+    }
+~~~
+
+# 9. 用两个栈实现队列
+
+## 题目描述
+
+用两个栈来实现一个队列，完成队列的 Push 和 Pop 操作。
+
+## 解题思路
+
+一个用来压入，一个用来弹出。注意两点：
+
+1. 必须要一次性全部压入到弹出栈
+2. 如果弹出栈，不为空，绝不能向弹出栈中压入数据。
+
+~~~java
+ Stack<Integer> stack1 = new Stack<Integer>();
+    Stack<Integer> stack2 = new Stack<Integer>();
+
+    public void push(int node) {
+        stack1.push(node);
+        //一次性全部压入
+        if(stack2.empty()){
+            while(!stack1.empty()){
+                stack2.push(stack1.pop());
+            }
+        }
+    }
+
+    public int pop() {
+        if(stack1.empty() && stack2.empty())
+            throw new RuntimeException("Queue is empty!");
+        //如果不为空，绝不能向弹出栈压入数据
+        if(stack2.empty()){
+            while(!stack1.empty()){
+                stack2.push(stack1.pop());
+            }
+        }
+        return stack2.pop();
+    }
+~~~
+
+# 55.二叉树的深度
+
+## 题目描述
+
+从根结点到叶结点依次经过的结点（含根、叶结点）形成树的一条路径，最长路径的长度为树的深度。
+
+## 解题思路
+
+```java
+public int TreeDepth(TreeNode root) {
+    return root == null ? 0 : 1 + Math.max(TreeDepth(root.left), TreeDepth(root.right));
+}
+```
+
+# 10.1 斐波那契数列
+
+## 题目描述
+
+求斐波那契数列的第 n 项，n <= 39。
+
+## 题目分析
+
+找到对应的递归关系式，确认递归出口。如果使用递归计算，会计算许多的重复节点，出现严重的效率问题。**不可取**！！！
+
+~~~java
+public int Fibnacci(int n){
+    if(n<=1)
+        return n;
+    else {
+        return Fibonacci(n-1)+Fibonacci(n-2);
+    }
+} 
+~~~
+
+递归是将一个问题划分成多个子问题求解，动态规划也是如此，但是动态规划会把子问题的解缓存起来，从而避免重复求解子问题。
+
+~~~java
+public int Fibonacci(int n) {
+    if (n <= 1)
+        return n;
+    int[] fib = new int[n + 1];
+    fib[1] = 1;
+    for (int i = 2; i <= n; i++)
+        fib[i] = fib[i - 1] + fib[i - 2];
+    return fib[n];
+}
+~~~
+
+考虑到第i项只与第i-1和第i-2项有关，可以将只存储前两项的值，从而将空间复杂度从O(n)降低到O(1)
+
+~~~java
+public int Fibonacci(int n){
+    if(n<=1)
+        return n;
+    int pre1=0;
+    int pre2=1;
+    int target=0;
+    for(int i=2;i<=n;i++){
+        target=pre1+pre2;
+        pre1=pre2;
+        pre2=target;
+    }
+    return target;        
+}
+~~~
+
+由于待求解的 n 小于 40，因此可以将前 40 项的结果先进行计算，之后就能以 O(1) 时间复杂度得到第 n 项的值。
+
+~~~java
+public int Fibonacci(int n){
+    private int[]fib=new int[40];
+    public Solution(){
+        fib[1]=1;
+        for(int i=2;i<fib.length;i++){
+            fib[i]=fib[i-1]+fib[i-2];
+        }
+    }
+    public int Fibonacci(int n){
+        return fib[n];
+    }
+}
+~~~
+
+# 10.2 青蛙跳台阶
+
+## 题目描述
+
+一只青蛙一次可以跳上 1 级台阶，也可以跳上 2 级。求该青蛙跳上一个 n 级的台阶总共有多少种跳法。
+
+## 题目分析
+
+```java
+public int JumpFloor(int target) {
+    if(target<=2)
+        return target;
+    int pre1=1;
+    int pre2=2;
+    int result=1;
+    for(int i=2;i<target;i++){
+        result=pre1+pre2;
+        pre1=pre2;
+        pre2=result;
+    }
+    return result;
+}
+```
+变态小青蛙一次可以跳n个台阶
+
+# 26.树的子结构
+
+```java
+public boolean HasSubtree(TreeNode root1, TreeNode root2) {
+    if (root1 == null || root2 == null)
+        return false;
+    return isSubtreeWithRoot(root1, root2) || HasSubtree(root1.left, root2) || HasSubtree(root1.right, root2);
+}
+
+private boolean isSubtreeWithRoot(TreeNode root1, TreeNode root2) {
+    if (root2 == null)
+        return true;
+    if (root1 == null)
+        return false;
+    if (root1.val != root2.val)
+        return false;
+    return isSubtreeWithRoot(root1.left, root2.left) && isSubtreeWithRoot(root1.right, root2.right);
+}
+```
+
+# 27.二叉树的镜像
+
+```java
+public void Mirror(TreeNode root) {
+    if (root == null)
+        return;
+    swap(root);
+    Mirror(root.left);
+    Mirror(root.right);
+}
+
+private void swap(TreeNode root) {
+    TreeNode t = root.left;
+    root.left = root.right;
+    root.right = t;
+}
+```
+
+# 32.从上往下打印二叉树
+
+从上往下打印出二叉树的每个节点，同层节点从左至右打印。
+
+```java
+public ArrayList<Integer> PrintFromTopToBottom(TreeNode root) {
+    if(root==null)
+        return new ArrayList<Integer>();
+    ArrayList<Integer>l=new ArrayList<>();
+    Queue<TreeNode>q=new java.util.LinkedList<>();
+    q.add(root);
+    while(!q.isEmpty()){
+        TreeNode n=q.poll();
+        l.add(n.val);
+        if(n.left!=null)
+            q.add(n.left);
+        if(n.right!=null)
+            q.add(n.right);
+    }
+    return l;
+}
+```
+# 31.栈的压入、弹出序列
+
+输入两个整数序列，第一个序列表示栈的压入顺序，请判断第二个序列是否可能为该栈的弹出顺序。假设压入栈的所有数字均不相等。例如序列1,2,3,4,5是某栈的压入顺序，序列4,5,3,2,1是该压栈序列对应的一个弹出序列，但4,3,5,1,2就不可能是该压栈序列的弹出序列。（注意：这两个序列的长度是相等的）
+
+使用一个新栈来模拟压栈出栈的过程
+
+~~~java
+ public boolean IsPopOrder(int [] pushA,int [] popA) {
+      int n=pushA.length;
+      java.util.Stack<Integer>stack=new java.util.Stack<>();
+      for(int pushIndex=0,popIndex=0;pushIndex<n;pushIndex++){
+          stack.push(pushA[pushIndex]);
+          while(popIndex<n && !stack.isEmpty() &&stack.peek()==popA[popIndex]){
+              stack.pop();
+              popIndex++;
+          }
+      }
+      return stack.isEmpty();
+    }
+~~~
+
