@@ -200,3 +200,15 @@ MySQL默认的事务型引擎，只有在需要它不支持的特性时，才考
 |   备份   | 支持在线热备份 |                      不支持                      |
 | 崩溃恢复 |                | 崩溃后发生损坏的概率比InnoDB高很多，恢复速度更慢 |
 | 其他特性 |                |             支持压缩表和空间数据索引             |
+
+## Redis 和 Memcache
+
+数据类型：Redis支持String、List、Set、Sorted Set、Hash，而memcache支持简单数据类型
+
+持久性：Redis支持持久化操作，而memcache不支持
+
+分布式存储：redis支持master-slave复制模式，memcache可以使用一致性hash做分布式
+
+value大小不同：memcache是一个内存缓存，key的长度小于250字符
+
+数据一致性不同：Redis支持单线程操作，保证数据按顺序提交。而memcache需要使用CAS保证数据的一致性。
