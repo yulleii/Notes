@@ -1,19 +1,19 @@
 并发与多线程（应用及底层实现）
 
-- 线程的创建方式
-- 多线程应用场景
-- 线程状态与转换
-- 线程安全与同步机制：volatile vs synchronized vs Lock(ReentrantLock)
-- volatile底层原理
-- synchronized底层原理及其锁的升级与降级
-- Lock(ReentrantLock)底层原理
-- ThreadLocal
-- 线程通信
-- 线程池（底层实现）
-- 死锁的出现场景、定位以及修复
-- CAS 与 Atomic类型实现原理
-- AQS：并发包基础技术
-- Java并发包（java.util.concurrent及其子包）提供的并发工具类
+- [x] <u>线程的创建方式</u>
+- [ ] 多线程应用场景
+- [x] <u>线程状态与转换</u>
+- [ ] 线程安全与同步机制：volatile vs synchronized vs Lock(ReentrantLock)
+- [ ] volatile底层原理
+- [x] synchronized底层原理及其锁的升级与降级
+- [ ] Lock(ReentrantLock)底层原理
+- [x] <u>ThreadLocal</u>
+- [x] 线程通信
+- [ ] 线程池（底层实现）
+- [ ] 死锁的出现场景、定位以及修复
+- [ ] CAS 与 Atomic类型实现原理
+- [x] AQS：并发包基础技术
+- [ ] Java并发包（java.util.concurrent及其子包）提供的并发工具类
   - 比synchronized更加高级的各种同步结构，如：Semaphore，CyclicBarrier， CountDownLatch
   - 各种线程安全的容器（主要有四类：Queue,List,Set，Map），如：ConcurrentHashMap,ConcurrentSkipListMap,CopyOnWriteArrayList
   - 各种并发队列的实现，如各种BlockingQueue的实现（ArrayBlockingQueue, LinkedBlockingQueue, SynchorousQueue, PriorityBlockingQueue,DelayQueue,LinkedTranferQueue）等。
@@ -35,13 +35,57 @@ CPU通过时间片分配算法来循环执行任务，当前任务执行一个�
 - CAS算法
 - 使用最少线程和使用协程，在单线程里实现多任务的调度，并在单线程里维持多个任务间的切换
 
-## 锁的状态
+## 无同步方案
+
+### 栈封闭
+
+局部变量是存储在虚拟机栈中的，而虚拟机栈是线程私有的，不会出现线程安全问题。
+
+### 线程本地存储（Thread Local Storage）
+
+如果一段代码中所需要的数据必须与其他代码共享，那就看看这些**共享数据的代码是否能保证在同一个线程中执行**。如果能保证，我们就可以把共享数据的可见范围限制在同一个线程之内，这样，无须同步也能保证线程之间不出现数据争用的问题。
+
+一个应用实例就是经典 Web 交互模型中的“一个请求对应一个服务器线程”（Thread-per-Request）的处理方式，这种处理方式的广泛应用使得很多 Web 服务端应用都可以使用线程本地存储来解决线程安全问题。
+
+可以使用 java.lang.ThreadLocal 类来实现线程本地存储功能
+
+每个 Thread 都有一个 ThreadLocal.ThreadLocalMap 对象。
+
+当调用一个 ThreadLocal 的 set(T value) 方法时，先得到当前线程的 ThreadLocalMap 对象，然后将 ThreadLocal->value 键值对插入到该 Map 中。
+
+在一些场景 (尤其是使用线程池) 下，由于 ThreadLocal.ThreadLocalMap 的底层数据结构导致 ThreadLocal 有内存泄漏的情况，应该**尽可能在每次使用 ThreadLocal 后手动调用 remove()**，以避免出现 ThreadLocal 经典的内存泄漏甚至是造成自身业务混乱的风险。
+
+## 锁的优化 
+
+锁优化主要是指 JVM 对 synchronized 的优化。
+
+### 自旋锁
+
+互斥同步进入阻塞状态的开销都很大，应该尽量避免。在许多应用中，共享数据的锁定状态只会持续很短的一段时间。自旋锁的思想是让一个线程在请求一个共享数据的锁时执行忙循环（自旋）一段时间，如果在这段时间内能获得锁，就可以避免进入阻塞状态。
+
+自旋锁虽然能避免进入阻塞状态从而减少开销，但是它需要进行忙循环操作占用 CPU 时间，它只适用于共享数据的锁定状态很短的场景。
+
+在 JDK 1.6 中引入了自适应的自旋锁。自适应意味着自旋的次数不再固定了，而是由前一次在同一个锁上的自旋次数及锁的拥有者的状态来决定。
+
+### 锁消除
+
+堆上的数据可能出现永远只有一个线程在访问的情况，即这块内存不存在多线程竞争访问的情况。可以进行锁消除
+
+锁消除主要是通过逃逸分析来支持，如果堆上的共享数据不可能逃逸出去被其它线程访问到，那么就可以把它们当成私有数据对待，也就可以将它们的锁进行消除。
+
+### 锁粗化
+
+如果一系列的连续操作都对同一个对象反复加锁和解锁，频繁的加锁操作就会导致性能损耗。
+
+如果虚拟机探测到由这样的一串零碎的操作都对同一个对象加锁，将会把加锁的范围扩展（粗化）到整个操作序列的外部。
+
+### 锁的状态
 
 为了减少获得锁带来的性能消耗，引入了“偏向锁”和“轻量级锁”。在Java1.6中锁一共有4种状态，级别从低到高分别是：无锁状态、偏向锁状态、轻量级锁状态、重量级锁状态。
 
 锁可以升级但不能降级，目的是为了提高获得锁和释放锁的效率
 
-### 偏向锁
+#### 偏向锁
 
 为了让线程获得锁的代价更低而引入了偏向锁。默认启用，但是是在应用程序启动几秒钟以后才激活。使用`-XX:BiasedLockingStartupDelay=0`来调整激活时间，使用`XX:UseBiasedLocking=false`来关闭偏向锁。
 
@@ -49,11 +93,11 @@ CPU通过时间片分配算法来循环执行任务，当前任务执行一个�
 
 偏向锁是一种**等到竞争出现才释放锁的机制**。如果CAS获取偏向锁失败，则表示有竞争。当到达全局安全点（safepoint）时获得偏向锁的线程被挂起，偏向锁升级为轻量级锁，然后被阻塞在安全点的线程继续往下执行同步代码。（撤销偏向锁的时候会导致stop the word）
 
-### 轻量级锁
+#### 轻量级锁
 
 线程在执行同步块之前，JVM会先在当前线程的栈帧中创建用于**存储锁记录的空间**，并将对象头中的Mark Word复制到锁记录中（Displaced Mark Word）。然后线程尝试使用**CAS将对象头的Mark Word替换**为指向锁记录的指针。如果替换成功，当前线程获得锁，如果失败，表示其他线程竞争锁，当前线程便尝试使用**自旋来获取锁**。
 
-### 重量级锁
+#### 重量级锁
 
 轻量级解锁时，会使用原子的CAS操作将Displaced Mark Word替换回到对象头上，如果成功，则表示没有竞争发生。如果失败，表示当前锁存在竞争，锁就会膨胀成重量级锁。
 
@@ -64,6 +108,62 @@ CPU通过时间片分配算法来循环执行任务，当前任务执行一个�
 | 偏向锁   | 加锁和解锁不需要额外的消耗，和执行非同步方法比仅存在纳秒级的差距。 | 如果线程间存在锁竞争，会带来额外的锁撤销的消耗。 |  适用于只有一个线程访问同步块场景。  |
 | 轻量级锁 |          竞争的线程不会阻塞，提高了程序的响应速度。          |  如果始终得不到锁竞争的线程使用自旋会消耗CPU。   | 追求响应时间。同步块执行速度非常快。 |
 | 重量级锁 |              线程竞争不使用自旋，不会消耗CPU。               |             线程阻塞，响应时间缓慢。             |   追求吞吐量。同步块执行速度较长。   |
+
+## 读写锁
+
+同一时刻允许多个线程访问，但是写线程访问时，所有的读线程和其他写线程均被阻塞。
+
+Java并发包提供读写锁的实现是ReentrantReadWriteLock。readLock()方法和writeLock（）方法
+
+依赖自定义同步器来实现。读写状态就是同步器的同步状态，只有用一个整型变量上维护多种状态：高16位读，低16位写。通过位运算来确定读写状态，写状态将高16位全部抹去，读状态等于无符号右移16位
+
+#### 写锁的获取与释放
+
+写锁是一个支持重进入的排他锁。如果当前线程已经获取了写锁，则**增加写状态**。如果当前线程获取写锁时，读锁已被获取或者已经被其他线程获取写锁，则当前线程**进入等待状态**。
+
+~~~java
+        protected final boolean tryAcquire(int acquires) {
+            /*
+             * Walkthrough:
+             * 1. If read count nonzero or write count nonzero
+             *    and owner is a different thread, fail.
+             * 2. If count would saturate, fail. (This can only
+             *    happen if count is already nonzero.)
+             * 3. Otherwise, this thread is eligible for lock if
+             *    it is either a reentrant acquire or
+             *    queue policy allows it. If so, update state
+             *    and set owner.
+             */
+            Thread current = Thread.currentThread();
+            int c = getState();
+            int w = exclusiveCount(c);
+            if (c != 0) {
+                // (Note: if c != 0 and w == 0 then shared count != 0)
+                if (w == 0 || current != getExclusiveOwnerThread())
+                    return false;
+                if (w + exclusiveCount(acquires) > MAX_COUNT)
+                    throw new Error("Maximum lock count exceeded");
+                // Reentrant acquire
+                setState(c + acquires);
+                return true;
+            }
+            if (writerShouldBlock() ||
+                !compareAndSetState(c, c + acquires))
+                return false;
+            setExclusiveOwnerThread(current);
+            return true;
+        }
+~~~
+
+#### 读锁的获取与释放
+
+读锁是个支持重进入的共享锁。在没有其他写进程访问时，读锁总会被成功被访问。
+
+#### 锁降级
+
+锁降级指把持住（当前拥有的写锁），再次获取到读锁，随后释放（先前拥有的）写锁的过程。
+
+但不支持写锁，因为如果读锁已被多个线程获取，其中任意线程成功获取了写锁并更新了数据，则其更新对其他获取读锁的线程是不可见的。
 
 ## CAS
 
@@ -317,6 +417,44 @@ public static void main(String[] args) {
 - java不支持多重继承，因此继承了Thread类就无法继承其他类，但是可以实现多接口
 - 类可能只要求可执行，继承整个Thread开销太大
 
+# 中断
+
+## InterruptedException
+
+通过调用一个线程的`interrupt`来中断该线程。如果该线程处于BLOCKED、TIME_WAITING、WAITING状态，那么就会抛出InterruedException，从而提前结束进程。**但是不能中断IO阻塞和synchronize锁阻塞**
+
+## Interrupted()
+
+如果一个线程的run（）方法处于无限循环，并且没有执行sleep（）等会抛出InterruptedException的操作，那么调用线程的interrupt（）方法就无法使线程提前结束。
+
+但是如果调用interrupt（）方法会设置线程的中断标记：此时调用interrupted（）方法会返回false因此可以在interrupted（）方法判断当前线程是否处于中断状态，从而提前结束线程。
+
+```java
+public class InterruptExample{
+    private static class MyThread2 extends Thread{
+        public void run(){
+            while(!interrupted()){
+                //...
+            }
+            System.out.println("thread end");
+        }
+    }
+}
+```
+
+## Executor的中断操作
+
+调用Executor的shutdown（）方法会等待线程都执行完毕后再关闭，但是如果使用shutdownNow（）相当于调用每个线程的Interrupt（）方法。
+
+如果只想中断Executor中的一个线程，那么通过使用submit（）方法来提交一个线程，它会返回一个Future<?>对象，通过调用该对象的cancel（true）方法来中断线程。
+
+```java
+Future<?>future =executorService.submit(()->{});
+future.cancle(true);
+```
+
+
+
 # Java内存模型
 
 对特定的内存或高速缓存进行读写访问的过程抽象
@@ -446,7 +584,58 @@ Thread Interruption Rule，对线程 interrupt() 方法的调用先行发生于�
 
 ## synchronized
 
-实现原理：**monitorenter**指令是在编译后插入到同步代码块的开始位置，而**monitorexit**是插入到方法结束处和异常处，从而保证每个monitorenter必须有对应的monitorexit与之匹配。
+Synchronized在JVM中的实现原理
+
+重量级锁对应的锁标志位Mark Word是10，存储了指向重量级监视器锁的指针。在Hotspot中，对象的监视器（monitor）锁对象由ObjectMonitor对象实现（C++），其跟同步相关的数据结构如下：
+
+![](image/bb6a49be-00f2-4f27-a0ce-4ed764bc605c.png)
+
+```C++
+ObjectMonitor() {
+    _count        = 0; //用来记录该对象被线程获取锁的次数
+    _waiters      = 0;
+    _recursions   = 0; //锁的重入次数
+    _owner        = NULL; //指向持有ObjectMonitor对象的线程 
+    _WaitSet      = NULL; //处于wait状态的线程，会被加入到_WaitSet
+    _WaitSetLock  = 0 ;
+    _EntryList    = NULL ; //处于等待锁block状态的线程，会被加入到该列表
+}
+```
+
+**Synchronized同步代码块**：**monitorenter**指令是在编译后插入到同步代码块的开始位置，而**monitorexit**是插入到方法结束处和异常处，从而保证每个monitorenter必须有对应的monitorexit与之匹配。为了保证不论是正常执行完毕还是异常跳出代码块都能执行monitorexit语句，因此会出现两句monitorexit语句
+
+**Synchronized方法**同步不再是通过插入monitorentry和monitorexit指令实现，而是由方法调用指令来读取运行时常量池中的ACC_SYNCHRONIZED标志隐式实现的，如果方法表结构（method_info Structure）中的ACC_SYNCHRONIZED标志被设置，那么线程在执行方法前会先去获取对象的monitor对象，如果获取成功则执行方法代码，执行完毕后释放monitor对象，如果monitor对象已经被其它线程获取，那么当前线程被阻塞。
+
+
 
 ## Lock（ReentrantLock）
 
+
+
+# AQS
+
+AbstractQueuedSynchronizer（同步器）,用来构建锁或者其他同步组件的基础框架。是java.util.concurrent的核心。
+
+使用int成员变量表示同步状态，通过内置的FIFO队列完成资源获取线程的排队工作。
+
+同步器主要使用方式就是继承，子类通过继承同步器并实现它的抽象方法来管理同步状态。一般被定义为自定义同步组件的静态内部方法。
+
+**同步器的设计基于模板方法模式**，使用者需要继承同步器并重写指定的方法，随后将同步器组合在自定义组件的实现中，并调用同步器提供的模板方法。
+
+同步器需要重写的方法分为三类：独占式获取和释放同步状态、共享式获取和释放同步状态和查询同步队列的等待线程情况。
+
+| 方法名称                                | 描述                                                         |
+| --------------------------------------- | ------------------------------------------------------------ |
+| protected boolean tryAcquire(int arg)   | 独占式获取同步状态，实现该方法需要查询当前状态并判断同步状态是否符合预期，然后再进行CAS设置同步状态 |
+| protected boolean tryRelease(int arg)   | 独占式释放同步状态，等待释放同步状态，等待获取同步状态的线程将有机会获取同步状态 |
+| protected int tryAcquireShared(int arg) | 共享式获取同步状态，返回大于等于0的值，表示获取成功，反之获取失败 |
+| protected int tryReleaseShared(int arg) | 共享式释放同步状态                                           |
+| protected boolean isHeldExclusively()   | 当前同步器是否在独占模式下被线程占用，一般该方法表示是否被当前线程所独占 |
+
+## 同步队列
+
+FIFO双向队列来完成同步状态的管理。同步队列的节点用来保存获取同步状态失败的线程引用、等待状态以及前驱和后继节点。
+
+同步队列遵循FIFO，**首节点**是获取同步状态成功的节点，首节点的线程在释放同步状态时，将会唤醒后继节点，而后继节点将会在获取状态成功时将自己设置为首节点。首节点是通过获取成功的线程完成的，由于只有一个线程能够获取到同步状态，因此设置头节点的方法并不需要使用CAS保证。
+
+当线程没有获取到同步状态时，会构造成节点加入到同步队列中作为**尾节点**，需要通过CAS来设置尾节点。compareAndSetTail
