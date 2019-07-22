@@ -9,11 +9,11 @@
 - [x] Lock(ReentrantLock)底层原理
 - [x] <u>ThreadLocal</u>
 - [x] 线程通信
-- [ ] 线程池（底层实现）
+- [x] 线程池（底层实现）
 - [ ] 死锁的出现场景、定位以及修复
-- [ ] CAS 与 Atomic类型实现原理
+- [x] CAS 与 Atomic类型实现原理
 - [x] AQS：并发包基础技术
-- [ ] Java并发包（java.util.concurrent及其子包）提供的并发工具类
+- [x] Java并发包（java.util.concurrent及其子包）提供的并发工具类
   - 比synchronized更加高级的各种同步结构，如：Semaphore，CyclicBarrier， CountDownLatch
   - **各种线程安全的容器（主要有四类：Queue,List,Set，Map），如：ConcurrentHashMap,ConcurrentSkipListMap,CopyOnWriteArrayList**
   - **各种并发队列的实现，如各种BlockingQueue的实现（ArrayBlockingQueue, LinkedBlockingQueue, SynchorousQueue, PriorityBlockingQueue,DelayQueue,LinkedTranferQueue）等。**
@@ -85,13 +85,17 @@ CPU通过时间片分配算法来循环执行任务，当前任务执行一个�
 
 锁可以升级但不能降级，目的是为了提高获得锁和释放锁的效率
 
+![](image/bb6a49be-00f2-4f27-a0ce-4ed764bc605c.png)
+
 #### 偏向锁
 
 为了让线程获得锁的代价更低而引入了偏向锁。默认启用，但是是在应用程序启动几秒钟以后才激活。使用`-XX:BiasedLockingStartupDelay=0`来调整激活时间，使用`XX:UseBiasedLocking=false`来关闭偏向锁。
 
-当一个线程访问同步块并获取锁是，会在**对象头和栈帧中的锁记录里存储锁偏向的进程ID**，以后该进程在进入和退出同步块时不需要进行CAS操作来加锁和解锁，只需要简单地测试一下**对象的头的Mark Word**是否存储着指向当前线程的偏向锁。如果测试成功，表示线程已经获得了锁，否则需要再测试一下Mark Word偏向锁的标识是否设置成1：如果没有设置，则使用CAS竞争锁；否则尝试使用CAS将对象头的偏向锁指向当前线程。
+偏向锁的思想是偏向于让第一个获取锁对象的线程，这个线程在之后获取该锁就不再需要进行同步操作，甚至连 CAS 操作也不再需要。
 
-偏向锁是一种**等到竞争出现才释放锁的机制**。如果CAS获取偏向锁失败，则表示有竞争。当到达全局安全点（safepoint）时获得偏向锁的线程被挂起，偏向锁升级为轻量级锁，然后被阻塞在安全点的线程继续往下执行同步代码。（撤销偏向锁的时候会导致stop the word）
+当锁对象第一次被线程获得的时候，进入偏向状态，标记为 1 01。同时使用 CAS 操作将线程 ID 记录到 Mark Word 中，如果 CAS 操作成功，这个线程以后每次进入这个锁相关的同步块就不需要再进行任何同步操作。
+
+偏向锁是一种**等到竞争出现才释放锁的机制**。当有另外一个线程去尝试获取这个锁对象时，偏向状态就宣告结束，此时撤销偏向（Revoke Bias）后恢复到未锁定状态或者轻量级锁状态。
 
 #### 轻量级锁
 
@@ -186,6 +190,36 @@ JVM中的CAS操作利用了处理器提供的CMPXCHG指令实现的。
 **使用锁机制实现原子操作**
 
 锁机制保证了只有获得锁的线程才能够操作锁定的内存区域。除了偏向锁，JVM实现锁的方式都用了循环CAS，即当一个线程想进入同步块的时候使用循环CAS的方式来获取锁，当它退出同步块的时候使用循环CAS释放锁。
+
+### Atomicxxx类型的实现原理
+
+#### 原子更新基本数据类型
+
+AtomicBoolean、AtomicInteger、AtomicLong
+
+常用方法：addAndGet、compareAndSet、getAndIncrement
+
+~~~java
+    //U代表Unsafe类
+	public final int addAndGet(int delta) {
+        return U.getAndAddInt(this, VALUE, delta) + delta;
+    }
+	//以下两个均来Unsafe类中
+ 	public final int getAndAddInt(Object o, long offset, int delta) {
+        int v;
+        do {
+            v = getIntVolatile(o, offset);
+        } while (!weakCompareAndSetInt(o, offset, v, v + delta));
+        return v;
+    }
+    public final boolean weakCompareAndSetInt(Object o, long offset,
+                                              int expected,
+                                              int x) {
+        return compareAndSetInt(o, offset, expected, x);
+    }
+~~~
+
+
 
 # 线程的状态与转换
 
@@ -427,7 +461,7 @@ public static void main(String[] args) {
 
 如果一个线程的run（）方法处于无限循环，并且没有执行sleep（）等会抛出InterruptedException的操作，那么调用线程的interrupt（）方法就无法使线程提前结束。
 
-但是如果调用interrupt（）方法会设置线程的中断标记：此时调用interrupted（）方法会返回false因此可以在interrupted（）方法判断当前线程是否处于中断状态，从而提前结束线程。
+但是如果调用interrupt（）方法会设置线程的中断标记：此时调用interrupted（）方法会返回false。因此可以在interrupted（）方法判断当前线程是否处于中断状态，从而提前结束线程。
 
 ```java
 public class InterruptExample{
@@ -452,8 +486,6 @@ public class InterruptExample{
 Future<?>future =executorService.submit(()->{});
 future.cancle(true);
 ```
-
-
 
 # Java内存模型
 
@@ -594,9 +626,10 @@ Synchronized在JVM中的实现原理：
 
 任何对象都有一个monitor与之关联，并且一个monitor被持有后，它将处于锁定状态。线程执行到monitorenter指令时，将会尝试获取对象所有的monitor所有权，即尝试获取锁。
 
-在Hotspot中，对象的监视器（monitor）锁对象由ObjectMonitor对象实现（C++），其跟同步相关的数据结构如下：
+以下是 HotSpot 虚拟机对象头的内存布局，这些数据被称为 Mark Word。其中 tag bits 对应了五个状态，这些状态在右侧的 state 表格中给出。除了 marked for gc 状态，其它四个状态已经在前面介绍过了。
 
 ![](image/bb6a49be-00f2-4f27-a0ce-4ed764bc605c.png)
+在Hotspot中，对象的监视器（monitor）锁对象由ObjectMonitor对象实现（C++），其跟同步相关的数据结构如下：
 
 ```C++
 ObjectMonitor() {
@@ -811,23 +844,11 @@ FIFO双向队列来完成同步状态的管理。同步队列的节点用来保�
 
 当线程没有获取到同步状态时，会构造成节点加入到同步队列中作为**尾节点**，需要通过CAS来设置尾节点。compareAndSetTail
 
-
-
-
-
-
-
-
-
-- **各种线程安全的容器（主要有四类：Queue,List,Set，Map），如：ConcurrentHashMap,ConcurrentSkipListMap,CopyOnWriteArrayList**
-- **各种并发队列的实现，如各种BlockingQueue的实现（ArrayBlockingQueue, LinkedBlockingQueue, SynchorousQueue, PriorityBlockingQueue,DelayQueue,LinkedTranferQueue）等。**
-- Executor框架与线程池
-
 # 并发工具类
 
 Java并发包（java.util.concurrent及其子包）提供的并发工具类
 
-## 比synchronized更加高级的各种同步结构
+## 比*synchronized*更加高级的各种同步结构
 
 ### CountDownLatch
 
@@ -932,3 +953,230 @@ public class SemaphoreExample {
 ```
 2 1 2 2 2 2 2 1 2 2
 ```
+
+## Executor框架
+
+*interface：Executor*
+
+- interface：ExecutorService   加入Callable Future以及关闭方法
+  - Class:ForkJoinPool				支持ForkJoin框架的线程池实现
+  - Class:ThreadPoolExecutor	基础、标准的线程池实现(**非核心线程的创建条件：1.核心线程已满 2.任务队列已满)**
+  - interface:ScheduledExecutorService 定时任务的支持
+
+*Class:Executors* 快速得到线程池的工具类(慎用，由于创建的都是无界队列)
+
+- newFixedThreadPool(int nThreads)：创建一个固定大小、任务队列容量无界的线程池
+
+- newCachedThreadPool（）：创建一个大小无界的缓冲线程池
+
+- newSingleThreadPool()
+
+- newSchduledThreadPool(int corePoolSize):
+- newWorkStealingPool()
+
+### ThreadPoolExecutor的实现
+
+~~~java
+public class FixedSizeThreadPool {
+    //需要一个仓库
+    private BlockingQueue<Runnable>blockingQueue;
+    //需要一个线程的集合
+    private List<Thread> workers;
+    //需要一个人干活
+    public static class Worker extends Thread{
+        private FixedSizeThreadPool pool;
+        public Worker(FixedSizeThreadPool pool){
+            this.pool=pool;
+        }
+        public void run(){
+            //希望它不断的向仓库里面拿任务
+            while(this.pool.isWorking || this.pool.blockingQueue.size()>0){
+                Runnable task=null;
+                try{
+                    if(this.pool.isWorking)
+                        task=this.pool.blockingQueue.take();
+                    else
+                        task=this.pool.blockingQueue.poll();
+                }catch(InterruptedException e){
+                    e.printStackTrace();
+                }
+                if(task!=null){
+                    task.run();
+                    System.out.println("线程："+Thread.currentThread().getName()+"执行完毕");
+                }
+            }
+        }
+    }
+    //需要进行线程池的初始化，规定仓库大小和集合大小。可以把线程准备就绪
+    public FixedSizeThreadPool(int poolSize,int taskSize){
+        if(poolSize<=0 || taskSize <=0){
+            throw new IllegalArgumentException("非法参数");
+        }
+        this.blockingQueue=new LinkedBlockingQueue<>(taskSize);
+        this.workers= Collections.synchronizedList(new ArrayList<>());
+        for(int i=0;i<poolSize;i++){
+            Worker worker=new Worker(this);
+            worker.start();
+            workers.add(worker);
+        }
+    }
+
+    //需要向仓库中放任务——阻塞
+    public boolean submit(Runnable task){
+        if(isWorking)
+            return this.blockingQueue.offer(task);
+        else
+            return false;
+    }
+
+    //需要向仓库中放任务——非阻塞
+    public void execute(Runnable task){
+        try{
+             this.blockingQueue.put(task);
+        }catch(InterruptedException e){
+            e.printStackTrace();
+        }
+    }
+
+    //需要关闭的方法
+    //关闭的时候：仓库要停止继续添加新任务
+    //关闭的时候，仓库的剩余任务要执行完
+    //关闭的时候，如果再去仓库拿东西就不需要阻塞了
+    //关闭的时候，如果还有线程被阻塞，我们要强行中断
+    private volatile boolean isWorking=true;
+    public void shutdown(){
+        this.isWorking=false;
+        for(Thread thread:workers){
+            if(thread.getState().equals(Thread.State.WAITING)||
+                    thread.getState().equals(Thread.State.BLOCKED)){
+                thread.interrupt();
+            }
+        }
+    }
+}
+~~~
+
+#### 线程池的处理流程
+
+提交任务，首先判断核心线程池是否已满，如果没有，则创建线程执行任务。
+
+如果核心线程池已满，判断任务队列是否已经满了，如果没有，则将任务加入队列。
+
+如果任务队列满了，判断线程池是否已满，如果没有，则创建线程执行任务。
+
+否则按照策略处理无法执行的任务。
+
+#### 线程池的创建
+
+~~~java
+new  public ThreadPoolExecutor(int corePoolSize,
+                              int maximumPoolSize,
+                              long keepAliveTime,
+                              TimeUnit unit,
+                              BlockingQueue<Runnable> workQueue)  {
+    this(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue,
+             Executors.defaultThreadFactory(), defaultHandler);
+     }
+~~~
+
+- corePoolSize：线程池的基本大小
+- maximumPoolSize：线程池允许创建的最大线程数。如果使用了无界的任务队列，那么这个参数没有效果。
+- keepAliveTime:核心线程池以外的线程最大存活时间
+- workQueue：任务队列。用于保存等待执行的任务的阻塞队列。可以有以下几个选择
+  - ArrayBlockingQueue：基于数组结构的有界阻塞队列
+  - LinkedBlockingQueue：基于链表结构的无界队列。吞吐量通常高于ArrayBlockingQueue
+  - SynchronousQueue:一个不存储元素的阻塞队列。每个插入操作都必须等到另一个线程调用移除操作，否则插入操作一直处于阻塞状态，吞吐量高于LinkedBlockingQueue
+  - PriorityBlockingQueue：一个具有优先级的无限阻塞队列。
+
+#### 向线程池提交任务
+
+execute（）和submit（）方法
+
+submit（）方法用于提交需要返回值的任务。线程池会返回一个future类型的对象，通过future对象可以判断任务是否执行成功，并且可以通过future的get（）方法来获取返回值。get方法会阻塞当前线程直到任务完成。
+
+#### 关闭线程池
+
+可以通过调用线程池的shutdown()或shutdownNow方法来关闭线程池。他们的原理是**遍历线程池中的工作线程**，然后逐个判断**调用线程的interrupt()方法**来中断线程，所以无法响应中断的任务可能永远无法终止。
+
+shutdownNow首先将线程池的状态设置为STOP，然后尝试停止所有的正在执行或者暂停任务的线程，并返回等待执行任务的列表。
+
+而shutdown只是将线程池的状态设置为SHUTDOWN，然后中断所有没有正在执行任务的线程。
+
+调用哪一个关闭操作，isShutdown都会立即返回true。只有当所有的任务关闭以后，才会表示线程池关闭成功，这时调用isTerminated方法会返回true。
+
+### 使用Executor创建的ThreadExecutor
+
+#### FixedThreadPool
+
+~~~java
+public static ExecutorService newFixedThreadPool(int nThreads) {
+        return new ThreadPoolExecutor(nThreads, nThreads,
+                                      0L, TimeUnit.MILLISECONDS,
+                                      new LinkedBlockingQueue<Runnable>());
+    }
+~~~
+
+固定线程数，无界队列。响应变慢，如果任务过多可能造成任务丢失的情况
+
+适用于为了满足资源管理的需求，而需要限制当前线程数量的应用场景。
+
+#### SingleThreadExecutor
+
+~~~java
+public static ExecutorService newSingleThreadExecutor() {
+        return new FinalizableDelegatedExecutorService
+            (new ThreadPoolExecutor(1, 1,
+                                    0L, TimeUnit.MILLISECONDS,
+                                    new LinkedBlockingQueue<Runnable>()));
+    }
+~~~
+
+单一线程，无界队列。可以保证顺序执行每个任务。并且在任意时间上，不会有多个线程是活动的。
+
+#### CachedThreadPool
+
+~~~java
+public static ExecutorService newCachedThreadPool() {
+        return new ThreadPoolExecutor(0, Integer.MAX_VALUE,
+                                      60L, TimeUnit.SECONDS,
+                                      new SynchronousQueue<Runnable>());
+    }
+~~~
+
+**注意**：线程池的最大线程数为`Integer.MAX_VALUE`，队列还是使用的没有容量的SynchronousQueue。如果主线程提交任务的速度高于maximumPool中线程处理任务的速度时，CachedThreadPool会不断创建新线程。极端情况下，会因为创建过多线程而耗尽CPU和内存资源。
+
+#### newScheduledThreadPool
+
+~~~java
+public static ScheduledExecutorService newScheduledThreadPool(int corePoolSize) {
+        return new ScheduledThreadPoolExecutor(corePoolSize);
+    }
+~~~
+
+1. 调用ScheduledThreadPoolExecutor的scheduleAtFixedRate（）方法或者scheduleWithFixedDelay()方法时，会向pool中的DelayQueue添加一个实现了RunnableSchedudFuture的ScheduleFutureTask。
+2. 线程池中的线程从DelayQueue中获取ScheduledFutureTask。然后执行任务
+
+> scheduleAtFixedRate
+>
+> 表示以固定频率执行的任务，如果当前任务耗时较多，超过定时周期period，则当前任务结束后会立即执行。
+>
+> scheduleWithFixedDelay
+>
+> 表示以固定延时执行任务，延时是相对当前任务结束为起点计算开始时间。
+
+ScheduleFutureTask主要包括三个成员变量，如下
+
+- long型time，表示这个任务将要被执行的具体时间
+- long型sequenceNumber，表示这个任务被添加到pool中的序号
+- long型period，表示任务执行的间隔周期
+
+DelayQueue封装了一个PriorityQueue，这个PriorityQueue会对Task进行排序。time小的在前面，如果time相同的，比较sequenceNumber，小的在前面。
+
+如何执行任务：
+
+1. 线程从DelayQueue中获取已经到期的ScheduledFutureTask（）。到期是指time大于等于当前时间。
+2. 线程执行这个Task
+3. 线程修改time
+4. 放回DelayQueue
+
+### FutureTask
