@@ -3,10 +3,10 @@
 - [x] <u>线程的创建方式</u>
 - [ ] 多线程应用场景
 - [x] <u>线程状态与转换</u>
-- [ ] 线程安全与同步机制：volatile vs synchronized vs Lock(ReentrantLock)
-- [ ] volatile底层原理
+- [x] 线程安全与同步机制：volatile vs synchronized vs Lock(ReentrantLock)
+- [x] volatile底层原理
 - [x] synchronized底层原理及其锁的升级与降级
-- [ ] Lock(ReentrantLock)底层原理
+- [x] Lock(ReentrantLock)底层原理
 - [x] <u>ThreadLocal</u>
 - [x] 线程通信
 - [ ] 线程池（底层实现）
@@ -15,8 +15,8 @@
 - [x] AQS：并发包基础技术
 - [ ] Java并发包（java.util.concurrent及其子包）提供的并发工具类
   - 比synchronized更加高级的各种同步结构，如：Semaphore，CyclicBarrier， CountDownLatch
-  - 各种线程安全的容器（主要有四类：Queue,List,Set，Map），如：ConcurrentHashMap,ConcurrentSkipListMap,CopyOnWriteArrayList
-  - 各种并发队列的实现，如各种BlockingQueue的实现（ArrayBlockingQueue, LinkedBlockingQueue, SynchorousQueue, PriorityBlockingQueue,DelayQueue,LinkedTranferQueue）等。
+  - **各种线程安全的容器（主要有四类：Queue,List,Set，Map），如：ConcurrentHashMap,ConcurrentSkipListMap,CopyOnWriteArrayList**
+  - **各种并发队列的实现，如各种BlockingQueue的实现（ArrayBlockingQueue, LinkedBlockingQueue, SynchorousQueue, PriorityBlockingQueue,DelayQueue,LinkedTranferQueue）等。**
   - Executor框架与线程池
 
 
@@ -577,16 +577,24 @@ Thread Interruption Rule，对线程 interrupt() 方法的调用先行发生于�
 
 ### 底层原理
 
+**实现可见性**
+
 有volatile变量修饰的共享变量进行写操作的时候，汇编代码中会出现**Lock前缀的指令**。该指令在多核处理器会引发两件事情：
 
 - 将当前处理器缓存行的数据写回到系统内存。Lock信号一般不锁总线，而是锁缓存，锁总线开销的比较大。
 - 这个写回内存的操作会使在其他CPU缓存了**该内存地址的数据无效**。处理器使用嗅探技术保证它的内部缓存、系统内存和其他处理器的缓存数据在总线上保持一致。如果通过嗅探一个处理器来检测其他处理器打算写内存地址，而这个地址当前处于共享状态，那么正在嗅探的处理将使它的缓存行无效，在下次访问相同内存地址时，强制缓存行填充。
 
+**实现有序性**
+
+根据happens-before原则，对于volatile修饰的变量写操作先于读操作。使用内存屏障来保证对内存操作的顺序限制。内存屏障有LoadLoad、StoreStore、LoadStore、StoreLoad
+
 ## synchronized
 
-Synchronized在JVM中的实现原理
+Synchronized在JVM中的实现原理：
 
-重量级锁对应的锁标志位Mark Word是10，存储了指向重量级监视器锁的指针。在Hotspot中，对象的监视器（monitor）锁对象由ObjectMonitor对象实现（C++），其跟同步相关的数据结构如下：
+任何对象都有一个monitor与之关联，并且一个monitor被持有后，它将处于锁定状态。线程执行到monitorenter指令时，将会尝试获取对象所有的monitor所有权，即尝试获取锁。
+
+在Hotspot中，对象的监视器（monitor）锁对象由ObjectMonitor对象实现（C++），其跟同步相关的数据结构如下：
 
 ![](image/bb6a49be-00f2-4f27-a0ce-4ed764bc605c.png)
 
@@ -602,15 +610,178 @@ ObjectMonitor() {
 }
 ```
 
-**Synchronized同步代码块**：**monitorenter**指令是在编译后插入到同步代码块的开始位置，而**monitorexit**是插入到方法结束处和异常处，从而保证每个monitorenter必须有对应的monitorexit与之匹配。为了保证不论是正常执行完毕还是异常跳出代码块都能执行monitorexit语句，因此会出现两句monitorexit语句
+**Synchronized同步代码块**：**monitorenter**指令是在编译后插入到同步代码块的开始位置，而**monitorexit**是插入到方法结束处和异常处，从而保证每个monitorenter必须有对应的monitorexit与之匹配。为了保证不论是正常执行完毕还是异常跳出代码块都能执行monitorexit语句，因此会出现两句monitorexit语句。
 
 **Synchronized方法**同步不再是通过插入monitorentry和monitorexit指令实现，而是由方法调用指令来读取运行时常量池中的ACC_SYNCHRONIZED标志隐式实现的，如果方法表结构（method_info Structure）中的ACC_SYNCHRONIZED标志被设置，那么线程在执行方法前会先去获取对象的monitor对象，如果获取成功则执行方法代码，执行完毕后释放monitor对象，如果monitor对象已经被其它线程获取，那么当前线程被阻塞。
 
-
-
 ## Lock（ReentrantLock）
 
+### 自己手撕一个重入锁（非公平）
 
+~~~java
+public class MyReentrantLock implements Lock {
+    //当前锁的拥有者
+    AtomicReference<Thread>owner=new AtomicReference<>();
+    //等待队列
+    private LinkedBlockingQueue<Thread>waiter=new LinkedBlockingQueue<>();
+    //标记加锁次数
+    AtomicInteger count=new AtomicInteger(0);
+    @Override
+    public void lock() {
+        if(!tryLock()){
+            waiter.offer(Thread.currentThread());
+            for(;;){
+                Thread head=waiter.peek();
+                if(head == Thread.currentThread()){
+                    if(!tryLock())
+                        LockSupport.park();
+                    else{
+                        waiter.poll();
+                        return;
+                    }
+                }else{
+                    LockSupport.park();
+                }
+            }
+        }
+    }
+
+    @Override
+    public void lockInterruptibly() throws InterruptedException {
+
+    }
+
+    @Override
+    public boolean tryLock() {
+        //判断count是否为0，若不为0，说明锁已经被占用
+        int ct=count.get();
+        if(ct!=0){
+            //若owner为自己，ct+1,重入锁的特点在此
+            if(owner.get()==Thread.currentThread()){
+                count.set(ct+1);
+                return true;
+            }else{
+                //若不是，抢锁失败
+                return false;
+            }
+        }else{
+            if(count.compareAndSet(ct,ct+1)){
+                owner.set(Thread.currentThread());
+                return true;
+            }else{
+                return false;
+            }
+        }
+    }
+
+    @Override
+    public boolean tryLock(long time, TimeUnit unit) throws InterruptedException {
+        return false;
+    }
+
+    @Override
+    public void unlock() {
+        if(tryUnlock()){
+            Thread th=waiter.peek();
+            if(th!=null)
+                LockSupport.unpark(th);
+        }
+    }
+
+    public boolean tryUnlock(){
+        //判断当前线程是不是owner
+        if(owner.get()!=Thread.currentThread()){
+            throw new IllegalMonitorStateException();
+        }else{
+            int ct=count.get();
+            int nextc=ct-1;
+            count.set(nextc);
+            if(nextc==0){
+                owner.compareAndSet(Thread.currentThread(),null);
+                return true;
+            }else
+                return false;
+        }
+    }
+
+    @Override
+    public Condition newCondition() {
+        return null;
+    }
+}
+~~~
+
+### 学一学大师的操作
+
+ReentrantLock通过组合自定义同步器来实现锁的获取和释放。先来看一看非公平性实现
+
+~~~java
+final boolean nonfairTryAcquire(int acquires) {
+            final Thread current = Thread.currentThread();
+            int c = getState();
+            if (c == 0) {
+                if (compareAndSetState(0, acquires)) {
+                    setExclusiveOwnerThread(current);
+                    return true;
+                }
+            }
+            else if (current == getExclusiveOwnerThread()) {
+                int nextc = c + acquires;
+                if (nextc < 0) // overflow
+                    throw new Error("Maximum lock count exceeded");
+                setState(nextc);
+                return true;
+            }
+            return false;
+}
+~~~
+
+如果获取到了锁，则判断当前锁是否是当前线程获取的，如果是，则增加同步状态值并返回true。
+
+既然有获取就应该有释放，释放就应该是减少状态值，来看看实际操作
+
+~~~java
+ protected final boolean tryRelease(int releases) {
+            int c = getState() - releases;
+            if (Thread.currentThread() != getExclusiveOwnerThread())
+                throw new IllegalMonitorStateException();
+            boolean free = false;
+            if (c == 0) {
+                free = true;
+                setExclusiveOwnerThread(null);
+            }
+            setState(c);
+            return free;
+}
+~~~
+
+如果该锁获取了n次，那么前n-1次tryRelease方法都会返回false，只有完全释放了，才能返回true。
+
+但是对于公平锁，那么锁的获取顺序就应该符合请求的绝对时间顺序，也就是FIFO。看看公平锁是如何实现的。
+
+~~~java
+ protected final boolean tryAcquire(int acquires) {
+            final Thread current = Thread.currentThread();
+            int c = getState();
+            if (c == 0) {
+                if (!hasQueuedPredecessors() &&
+                    compareAndSetState(0, acquires)) {
+                    setExclusiveOwnerThread(current);
+                    return true;
+                }
+            }
+            else if (current == getExclusiveOwnerThread()) {
+                int nextc = c + acquires;
+                if (nextc < 0)
+                    throw new Error("Maximum lock count exceeded");
+                setState(nextc);
+                return true;
+            }
+            return false;
+        }
+~~~
+
+和nofairTryAcquire比较，唯一的不同在于判断条件多了一个hasQueuedPredecessors（）方法，即加入了同步队列中当前节点是否有前驱节点的判断，如果返回true，则表示有线程比当前线程更早地请求获取锁，因此需要等待前驱线程获取并释放锁后才能继续获取锁。
 
 # AQS
 
@@ -639,3 +810,125 @@ FIFO双向队列来完成同步状态的管理。同步队列的节点用来保�
 同步队列遵循FIFO，**首节点**是获取同步状态成功的节点，首节点的线程在释放同步状态时，将会唤醒后继节点，而后继节点将会在获取状态成功时将自己设置为首节点。首节点是通过获取成功的线程完成的，由于只有一个线程能够获取到同步状态，因此设置头节点的方法并不需要使用CAS保证。
 
 当线程没有获取到同步状态时，会构造成节点加入到同步队列中作为**尾节点**，需要通过CAS来设置尾节点。compareAndSetTail
+
+
+
+
+
+
+
+
+
+- **各种线程安全的容器（主要有四类：Queue,List,Set，Map），如：ConcurrentHashMap,ConcurrentSkipListMap,CopyOnWriteArrayList**
+- **各种并发队列的实现，如各种BlockingQueue的实现（ArrayBlockingQueue, LinkedBlockingQueue, SynchorousQueue, PriorityBlockingQueue,DelayQueue,LinkedTranferQueue）等。**
+- Executor框架与线程池
+
+# 并发工具类
+
+Java并发包（java.util.concurrent及其子包）提供的并发工具类
+
+## 比synchronized更加高级的各种同步结构
+
+### CountDownLatch
+
+允许一个或多个线程等待其他线程完成操作。
+
+join也可以实现让当前线程等待join线程执行结束。其实现原理是不停检查join线程是否存活，如果join线程存活则让当前线程永远等待。
+
+CountDownLatch的构造函数接受一个ing类型的参数作为计数器。当调用`countDown( )`，N就会减一，CountDownLatch的`await()`方法会阻塞当前线程，直到N变成零。`await(long time,TimeUnit unit)`可以让当前线程等待特定时间后就不在阻塞当前线程。
+
+> CountDownLatch不能重新初始化或者修改内部计数器的值
+
+~~~java
+public class CountdownLatchExample {
+
+    public static void main(String[] args) throws InterruptedException {
+        final int totalThread = 10;
+        CountDownLatch countDownLatch = new CountDownLatch(totalThread);
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        for (int i = 0; i < totalThread; i++) {
+            executorService.execute(() -> {
+                System.out.print("run..");
+                countDownLatch.countDown();
+            });
+        }
+        countDownLatch.await();
+        System.out.println("end");
+        executorService.shutdown();
+    }
+}
+~~~
+
+~~~
+run..run..run..run..run..run..run..run..run..run..end
+~~~
+
+### CyclicBarrier
+
+可循环使用的屏障。让一组线程到达一个屏障时被阻塞，直到最后一个线程到达屏障，屏障才会放行通过线程。
+
+和CountDownLatch的区别在于CyclicBarrier的计数器可以使用`reset()`方法重置。所以CyclicBarrier能处理更多复杂的场景业务。例如，如果计算机发生错误，可以重置计数器，并让线程重新执行一次。
+
+CyclicBarrier 有两个构造函数，其中 parties 指示计数器的初始值，barrierAction 在所有线程都到达屏障的时候会执行一次。
+
+~~~java
+public class CyclicBarrierExample {
+
+    public static void main(String[] args) {
+        final int totalThread = 10;
+        CyclicBarrier cyclicBarrier = new CyclicBarrier(totalThread);
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        for (int i = 0; i < totalThread; i++) {
+            executorService.execute(() -> {
+                System.out.print("before..");
+                try {
+                    cyclicBarrier.await();
+                } catch (InterruptedException | BrokenBarrierException e) {
+                    e.printStackTrace();
+                }
+                System.out.print("after..");
+            });
+        }
+        executorService.shutdown();
+    }
+}
+~~~
+
+```
+before..before..before..before..before..before..before..before..before..before..after..after..after..after..after..after..after..after..after..after..
+```
+
+### Semaphore
+
+Semaphore（信号量）用来控制访问特定资源的线程数量。它通过协调各个线程，来保证合理的使用公共资源。
+
+首先线程使用Samaphore的`acquire()`方法获取一个许可证，使用完之后调用`release()`方法归还许可证
+
+```java
+public class SemaphoreExample {
+
+    public static void main(String[] args) {
+        final int clientCount = 3;
+        final int totalRequestCount = 10;
+        Semaphore semaphore = new Semaphore(clientCount);
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        for (int i = 0; i < totalRequestCount; i++) {
+            executorService.execute(()->{
+                try {
+                    semaphore.acquire();
+                    System.out.print(semaphore.availablePermits() + " ");
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } finally {
+                    semaphore.release();
+                }
+            });
+        }
+        executorService.shutdown();
+    }
+}
+```
+
+```
+2 1 2 2 2 2 2 1 2 2
+```
