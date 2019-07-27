@@ -4,7 +4,7 @@
 
 从优秀的开源框架中，学习如何去使用。
 
-![](Snipaste_2019-07-23_21-30-45.png)
+![](/image/Snipaste_2019-07-23_21-30-45.png)
 
 **观察者模式**
 
@@ -153,3 +153,117 @@ applicationContext.refresh();
 
 - 写在配置类上，没有指定环境表示的Bean都会被加载
 
+# AOP
+
+## 如何使用AOP
+
+动态代理：指在程序运行期间将一段代码切入到指定方法指定位置运行的编程方式
+
+**aop准备工作**
+
+- 导入aop模块：Spring AOP（spring-aspects）
+
+- 创建一个业务逻辑类（MathCalculator），在业务逻辑运行的时候将日志进行打印（方法之前、结束或者出异常等情况）
+
+- 切面需要能感知到方法运行到哪里了。
+
+> 通知方法有
+>
+> 前置通知(@Before)：目标方法运行之前运行
+>
+> 后置通知(@After)：方法运行之后通知
+>
+> 返回通知(@AfterReturning)：返回通知
+>
+> 异常通知(@AfterThrowing)：方法出现异常后运行
+>
+> 环绕通知(@Around)：动态代理，手动推进目标方法运行（joinPoint.procced()）
+
+**创建和使用切面类：**
+
+1. 给切面类的目标方法标注
+2. 将切面类和业务逻辑类都加入到容器中
+3. 告诉容器哪个类是切面类，也就是给切面类上加上@Aspect标注
+4. 给配置类中加上@EnableAspectJAtutoProxy（开启基于注解的aop模式）
+
+## AOP原理
+
+看给容器中注册了什么组件,这个组件什么时候工作,以及组件的作用是什么?
+
+### 核心注解@EnableAspectJAutoProxy
+
+```
+@Import({AspectJAutoProxyRegistrar.class})
+```
+
+给容器中导入AspectJAutoProxyRegistrar。利用AspectJAutoProxyRegistrar自定义容器中注册Bean
+
+AnnotationAwareAspectJAutoProxyCreator=internalAutoProxyCreator
+
+给容器中注册一个AnnotationAwareAspectJAutoProxyCreator
+
+### AnnotationAwareAspectJAutoProxyCreator
+
+![](/image/diagram.png)
+
+注意其中**SmartInstantiationAwareBeanPostProcessor**后置处理器和**BeanFactorAware**
+
+在和处理器以及BeanFactory相关的方法处打上断点，进行调试。
+
+```
+AbstractAutoProxyCreator
+public void setBeanFactory(BeanFactory beanFactory)
+public Object postProcessBeforeInstantiation(Class<?> beanClass, String beanName)
+public Object postProcessAfterInitialization(@Nullable Object bean, String beanName)
+
+AbstractAdvisorAutoProxyCreator
+public void setBeanFactory(BeanFactory beanFactory)->initBeanFactory()
+
+AspectJAwareAdvisorAutoProxyCreator
+
+AnnotationAwareAspectJAutoProxyCreator
+protected void initBeanFactory(ConfigurableListableBeanFactory beanFactory)
+```
+
+### 流程
+
+创建IOC容器，传入配置类
+
+注册配置类，调用refresh()刷新容器。
+
+registerBeanPostProcessors(beanFactory);
+
+1. 先获取IoC容器已经定义了的需要创建对象的所有BeanPostProcessor
+
+2. 给容器中加其他的BeanPostProcessor
+
+3. 优先注册实现了PriorityOrdered接口的BeanPostProcessor
+
+4. 再给容器中注册实现了Ordered接口的BeanPostProcessor
+
+5. 注册没有实现优先级接口的BeanPostProcessor
+
+6. 注册BeanPostProcessor，实际上就是创建BeanPostProcessor对象，保存到容器中。
+
+   1. 创建Bean的实例
+   2. populateBean：给Bean的各种属性赋值
+   3. initializeBean：初始化bean
+      1. invokeAwareMethods（），处理Aware接口的方法回调
+      2. applyBeanPostProcessorsBeforeInitialization（）：应用后置处理器的postProcessorBeforeInitialization（）
+      3. invokeInitMethods（）：执行自定义的初始化方法
+      4. applyBeanPostProcessorsAfterInitialization（）：执行后置处理器的postProcessorAfterInitialization（）
+   4. BeanPostProcessor(AnnotationAwareAspectJAutoProxyCreator)创建成功
+
+7. 把BeanPostProcessor注册到BeanFactory中
+
+   beanFactory.addBeanPostProcessor(postProcessor)
+
+
+
+AnnotationAwareAspectJAutoProxyCreator=>InstantiationAwareBeanPostProcessor
+
+1. 遍历获取容器中所有的Bean，依次创建对象getBean（beanName）
+
+   getBean（）-> doGetBean ->getSingleton()
+
+2. 创建Bean
