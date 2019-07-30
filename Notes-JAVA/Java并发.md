@@ -554,7 +554,7 @@ public static void main(String[]args)throws InterruptedException{
 主要有三种实现方式：
 
 - volatile
-- synchronized，对一个变量执行unlock操作之前，必须把变量同步回主内存
+- synchronized，对一个变量执行释放锁操作之前，必须把变量同步回主内存
 - final，被final关键字修饰的字段在构造器中一旦初始化完成，并且没有发生this逃逸（其他线程通过this引用访问到初始化一半的对象），那么其他线程就能看见final字段的值。
 
 ### 3.有序性
@@ -626,7 +626,7 @@ Synchronized在JVM中的实现原理：
 
 任何对象都有一个monitor与之关联，并且一个monitor被持有后，它将处于锁定状态。线程执行到monitorenter指令时，将会尝试获取对象所有的monitor所有权，即尝试获取锁。
 
-以下是 HotSpot 虚拟机对象头的内存布局，这些数据被称为 Mark Word。其中 tag bits 对应了五个状态，这些状态在右侧的 state 表格中给出。除了 marked for gc 状态，其它四个状态已经在前面介绍过了。
+以下是 HotSpot 虚拟机对象头的内存布局，这些数据被称为 Mark Word。其中 tag bits 对应了五个状态，这些状态在右侧的 state 表格中给出。
 
 ![](image/bb6a49be-00f2-4f27-a0ce-4ed764bc605c.png)
 在Hotspot中，对象的监视器（monitor）锁对象由ObjectMonitor对象实现（C++），其跟同步相关的数据结构如下：

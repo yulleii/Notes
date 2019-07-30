@@ -20,27 +20,27 @@
 
 总共有23种设计模式
 
-# IOC
-
 ## 理解ApplicationContext
 
 ![](image/FileSystemXmlApplicationContext.png)
 
 通过FileSystemXmlApplicationContext来理解ApplicationContext
 
-### 如何给注册一个类？
+# 注解的使用方法
+
+## 如何给注册一个类？
 
 xml配置文件
 
 注解的方法
 
-### 自动扫描组件和扫描规则
+## 自动扫描组件和扫描规则
 
 *ANNOTATION*
 
 定制过滤规则
 
-### 设置组件作用域
+## 设置组件作用域
 
 默认获取都是单实例
 
@@ -50,9 +50,11 @@ SINGLETON：单实例（默认），IOC容器启用会调用方法创建对象�
 
 懒加载`@Lazy`：容器启动时，不会创建对象。只有在第一次使用获取，并初始化。
 
-### 按照一定的条件给容器中注册Bean
+## 按照一定的条件给容器中注册Bean
 
-### 导入组件到IoC容器
+Conditional
+
+## 导入组件到IoC容器
 
 - import
   - @import(xxx.class,...)
@@ -67,7 +69,7 @@ SINGLETON：单实例（默认），IOC容器启用会调用方法创建对象�
 
   默认获取getObject返回的对象。如果加上&将获得FactoryBean本身
 
-### 生命周期
+## 生命周期
 
 bean创建-创建-销毁的过程，使用容器来管理bean生命周期。可以自定义初始化和销毁方法
 
@@ -93,7 +95,7 @@ JSR250，使用这两个注解来修饰对应的初始化方法和销毁方法
 
 初始化前后调用
 
-### 赋值
+## 赋值
 
 使用@Value赋值
 
@@ -101,7 +103,7 @@ JSR250，使用这两个注解来修饰对应的初始化方法和销毁方法
 2. 可以写SpEL，#{}
 3. ${}配置文件中的值（在运行环境变量里面的值）
 
-### 自动装配
+## 自动装配
 
 Spring利用依赖注入（DI），完成对IoC容器中各个组件依赖关系赋值。后置处理器的实际应用
 
@@ -131,9 +133,9 @@ spring带有的Autowired。可以标注属性、方法、构造器、参数
 
 **@Inject**：需要导入javax.inject，和Autowired支持@Primary，但不支持required。
 
-### Profile
+## Profile
 
-可以根据当前环境动态的激活和切换一系列组件的功能。
+可以根据当前环境**动态的激活和切换**一系列组件的功能。
 
 例如开发环境、测试环境、生产环境
 
