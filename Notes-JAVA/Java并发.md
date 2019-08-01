@@ -53,6 +53,8 @@ CPU通过时间片分配算法来循环执行任务，当前任务执行一个�
 
 当调用一个 ThreadLocal 的 set(T value) 方法时，先得到当前线程的 ThreadLocalMap 对象，然后将 ThreadLocal->value 键值对插入到该 Map 中。
 
+> Thread为每个线程维护了ThreadLocalMap这么一个Map，而ThreadLocalMap的key是LocalThread对象本身，value则是要存储的对象
+
 在一些场景 (尤其是使用线程池) 下，由于 ThreadLocal.ThreadLocalMap 的底层数据结构导致 ThreadLocal 有内存泄漏的情况，应该**尽可能在每次使用 ThreadLocal 后手动调用 remove()**，以避免出现 ThreadLocal 经典的内存泄漏甚至是造成自身业务混乱的风险。
 
 ## 锁的优化 
@@ -962,6 +964,7 @@ public class SemaphoreExample {
   - Class:ForkJoinPool				支持ForkJoin框架的线程池实现
   - Class:ThreadPoolExecutor	基础、标准的线程池实现(**非核心线程的创建条件：1.核心线程已满 2.任务队列已满)**
   - interface:ScheduledExecutorService 定时任务的支持
+    - newSchduledThreadPool(int corePoolSize):
 
 *Class:Executors* 快速得到线程池的工具类(慎用，由于创建的都是无界队列)
 
@@ -971,7 +974,6 @@ public class SemaphoreExample {
 
 - newSingleThreadPool()
 
-- newSchduledThreadPool(int corePoolSize):
 - newWorkStealingPool()
 
 ### ThreadPoolExecutor的实现
@@ -1180,3 +1182,31 @@ DelayQueue封装了一个PriorityQueue，这个PriorityQueue会对Task进行排�
 4. 放回DelayQueue
 
 ### FutureTask
+
+##### Future
+
+用来获取异步计算结果
+
+- V get() ：获取异步执行的结果，如果没有结果可用，此方法会阻塞直到异步计算完成。
+
+- boolean isDone() ：任务结束返回true;
+
+- V get(Long timeout , TimeUnit unit) ：获取异步执行结果，如果没有结果可用，此方法会阻塞，但是会有时间限制，如果阻塞时间超过设定的timeout时间，该方法将抛出异常。
+
+- boolean isCancelled() ：如果任务完成前被取消，则返回true。
+
+- boolean cancel(boolean mayInterruptRunning) ：用来取消任务，如果任务还没开始，或者任务已经完成，执行cancel(...)方法将返回false；如果任务已经启动，执行cancel(true)方法将以中断执行此任务线程的方式来试图停止任务，如果停止成功，返回true；当任务已经启动，执行cancel(false)方法将不会对正在执行的任务线程产生影响(让线程正常执行到完成)，此时返回false；mayInterruptRunning参数表示是否中断执行中的线程。
+
+##### FutureTask
+
+~~~java
+public class FutureTask<V> implements RunnableFuture<V>
+public interface RunnableFuture<V> extends Runnable, Future<V>
+~~~
+
+FutureTask是Future的唯一实现类，FutureTask 实现了 RunnableFuture 接口，该接口继承自 Runnable 和 Future 接口，这使得 FutureTask 既可以当做一个任务执行，也可以有返回值。
+
+FutureTask 可用于异步获取执行结果或取消执行任务的场景。当一个计算任务需要执行很长时间，那么就可以用 FutureTask 来封装这个任务，主线程在完成自己的任务之后再去获取结果。
+
+
+  
