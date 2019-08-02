@@ -24,5 +24,6 @@
 
 # 快捷方式
 
-**try-catch**：ctrl+alt+t
+**try-catch**：`ctrl+alt+t`
 
+更新一个类的文件名或者批量修改一个变量的名字：`shift+F6`
