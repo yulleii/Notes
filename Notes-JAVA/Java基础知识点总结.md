@@ -37,3 +37,34 @@ StringBuffer线程安全，而StringBuilder线程非安全。多线程场景使�
 ### String vs StringBuffer vs StringBuilder
 
 三者在字符串连接操作的执行速度方面比较：StringBuilder>StringBuffer>String
+
+# 基本数据类型
+
+## 默认值
+
+| **数据类型**           | **默认值**  |
+| :--------------------- | :---------: |
+| byte                   |      0      |
+| short                  |      0      |
+| int                    |      0      |
+| long                   |     0L      |
+| float                  |    0.0f     |
+| double                 |    0.0d     |
+| char                   | **'u0000'** |
+| String (or any object) |    null     |
+| boolean                |    false    |
+
+\u0000表示Unicode编码的空字符
+
+## 长度
+
+| 数据类型 | 长度  |
+| -------- | :---: |
+| int      | 4字节 |
+| short    | 2字节 |
+| long     | 8字节 |
+| byte     | 1字节 |
+| float    | 4字节 |
+| double   | 8字节 |
+| char     | 2字节 |
+| boolean  | 1字节 |
