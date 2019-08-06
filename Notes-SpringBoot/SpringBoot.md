@@ -1,24 +1,21 @@
-随着需求的变化，代码改动过大的原因是什么？
+# Web与常见框架
 
-学习新的**设计模式**来重构我们的代码。前人根据自己的经验总结出来的，代表了代码设计的最佳实践。
-
-从优秀的开源框架中，学习如何去使用。
-
-![](/image/Snipaste_2019-07-23_21-30-45.png)
-
-**观察者模式**
-
-合理利用Spring事件机制来完成自己的需求。订单通知情景
-
-**模板方法模式**
-
-例如数据库的操作时，有很多重复的步骤，只修改特定的步骤来实现。
-
-**策略模式**
-
-电商"杀熟"怎么实现？对于不同买家实现不同的价格
-
-总共有23种设计模式
+- Servlet的生命周期（问的很少）
+- Cookie vs Session
+- 分布式Session
+- Spring相关（应用与源码分析）
+  - 看过Spring的源码吗？
+  - IOC应用及原理
+  - AOP应用及原理
+  - 事务
+  - Spring涉及的设计模式
+  - 谈谈Spring Bean的生命周期和作用域
+  - Spring MVC的工作原理
+  - Spring vs Spring MVC
+  - Spring vs Spring Boot
+  - 了解微服务，Spring Cloud
+- Netty (网络框架)
+- Dubbo
 
 ## 理解ApplicationContext
 
