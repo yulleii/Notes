@@ -18,7 +18,7 @@
 
 - StringBuild是jdk1.5后用来替换stringBuffer的一个类，大多数时候可以替换StringBuffer。和StringBuffer
 
-- 区别在于Stringbuild是一个单线程使用的类，不值执行线程同步所以比StringBuffer的速度快，效率高。
+- 区别在于StringBuilder是一个单线程使用的类，不值执行线程同步所以比StringBuffer的速度快，效率高。
 
 - 线程非安全的，建议单线程使用
 
