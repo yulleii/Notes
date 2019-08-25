@@ -100,6 +100,12 @@ StringBuffer线程安全，而StringBuilder线程非安全。多线程场景使�
 | char     | 2字节 |
 | boolean  | 1字节 |
 
+## 字符的ASCII码
+
+常用的char字符有控制字符对应的ASCII为0~31，32是空格。
+
+33~126为可显示的字符。其中字符0~9对应48~57，字符A~Z对应65~90，小写字母a~z对应97~122。
+
 # 集合框架
 
 ## Vector vs ArrayList vs LinkedList
