@@ -84,6 +84,8 @@
         -- 可来自多个表的多个字段
         -- 其他子句可以不使用
         -- 字段列表可以用*代替，表示所有字段
+        LIMIT m,n : 表示从第m+1条开始，取n条数据；
+		LIMIT n ： 表示从第0条开始，取n条数据，是limit(0,n)的缩写。
 -- 删
     DELETE FROM 表名[ 删除条件子句]
         没有条件子句，则会删除全部
@@ -118,3 +120,16 @@
     natural right join
 ~~~
 
+# 注意
+
+- 关于Distinct
+
+  大表一般用distinct效率不高，大数据量的时候都禁止用distinct，建议用group by解决重复问题。
+
+  select salary from salaries where to_date='9999-01-01' group by salary order by salary desc
+
+- not in在实际使用中，因为not in会转化成多表连接，而且不使用索引，在这里，觉得还是用left_join代替会好一点
+
+```mysql
+`select e.emp_no from employees as e left join dept_manager as d on e.emp_no = d.emp_no``where d.dept_no is ``null`
+```
