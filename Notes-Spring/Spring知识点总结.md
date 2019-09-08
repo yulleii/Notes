@@ -17,11 +17,17 @@ servlet本身就是一个接口，它定义的是一套处理网络请求的规�
 - 你销毁时要做什么
 - 你接收到请求时要做什么
 
-**servlet本身不会跟客户端打交道，tomcat才是与客户端直接打交道的家伙**。它监听了端口，请求过来后，根据url信息确定要将请求交给哪个servlet去处理，然后调用servlet.service方法，service方法返回一个response对象，tomcat再把这个response对象返回给客户端。
+**servlet本身不会跟客户端打交道，tomcat才是与客户端直接打交道的家伙**。Tomcat实际上是一个Servlet容器，它监听了端口，请求过来后，根据url信息确定要将请求交给哪个servlet去处理，然后调用servlet.service方法，service方法返回一个response对象，tomcat再把这个response对象返回给客户端。
 
 **如何写一个Servlet？**
 
 我们不需要实现javax.servlet接口，不用继承GenericServlet抽象类，**只需要继承HttpServlet并重写doGet（）/doPost等方法**。父类把能写的逻辑都已经写完，把不确定的业务代码抽成一个方法调用它。当子类重写该方法，整个业务代码就完整了。这就是模板方法模式。
+
+> 问题1：Servlet是线程安全的吗？
+>
+> Servlet不是线程安全的。Servlet容器也就是Tomcat接收一个HTTP请求时，Tomcat从线程池中取出一个线程，然后找到该请求对应的Servlet对象并进行初始化，之后调用Service方法。而每一个Servlet对象在容器中只有一个实例对象，也就是单例模式。如果多个Http请求的是同一个Servlet，那么这两个Http请求对应的线程将并发调用Servlet的Service方法。
+>
+> 如果Servlet中涉及实例变量，那么就会出现线程不安全的问题。此时可以使用Synchronized加锁来解决，另外如果没有实例变量，那么也就没有线程安全的问题了。
 
 ## ServletContext
 
@@ -580,6 +586,8 @@ Spring是一个应用程序开发框架，提供了一个简易的开发方式�
 
 初期的Spring通过代码加配置的形式为项目提供了良好的灵活性和扩展性，但随着Spring越来越庞大，其配置文件也越来越繁琐。大家渐渐觉得Spring那一套太过繁琐，此时，Spring社区推出了Spring Boot，它的目的在于**实现自动配置，降低项目搭建的复杂度**，如需要搭建一个接口服务，通过Spring Boot，几行代码即可实现。可以理解为SpringBoot是基于Spring的一套快速开发整合包。通过设计大量的自动化配置等方式来简化Spring原有样板化的配置，让我们更加容易的使用Spring框架。
 
+SpringBoot 在启动时会去依赖的 starter 包中寻找 /META-INF/spring.factories 文件，然后根据文件中配置的 Jar 包去扫描项目所依赖的 Jar 包。例如当我们使用SpringMVC时，我们需要配置组件扫描，调度程序DispatchServlet，视图解析器，web jar，然后去搜索依赖描述符。
+
 # Spring vs Spring MVC
 
 Spring MVC是Spring的一部分，Spring 出来以后，大家觉得很好用，于是按照这种模式设计了一个 MVC框架（一些用Spring 解耦的组件），**主要用于开发WEB应用和网络接口，它是Spring的一个模块，通过Dispatcher Servlet, ModelAndView 和 View Resolver，让应用开发变得很容易**。
@@ -615,6 +623,12 @@ SpringCloud是一个基于springBoot实现的微服务架构开发工具。它�
 **Hystrix**：发起请求是通过Hystrix的线程池来走的，不同的服务走不同的线程池，实现了不同服务调用的隔离，避免了服务雪崩的问题
 
 **Zuul**：如果前端、移动端要调用后端系统，统一从Zuul网关进入，由Zuul网关转发请求给对应的服务
+
+# # 和 $的区别
+
+#{}是预编译处理，\$ {}是字符串替换。mybatis在处理#{}时，会将sql中的#{}替换为?号，调用PreparedStatement的set方法来赋值；mybatis在处理 \$ { } 时，就是把 \${ } 替换成变量的值。使用 #{} 可以有效的防止SQL注入，提高系统安全性。
+
+#表示一个占位符，会在预编译时将该位置替换成`?`，并在preparedStatement对象替换？，只能设置？的值，但是不能改变sql语句的结构，从而防止SQL注入
 
 ## 参考网站
 

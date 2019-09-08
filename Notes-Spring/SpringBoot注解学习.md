@@ -191,7 +191,7 @@ applicationContext.refresh();
 
 ### 核心注解@EnableAspectJAutoProxy
 
-```
+```java
 @Import({AspectJAutoProxyRegistrar.class})
 ```
 
@@ -381,12 +381,12 @@ AnnotationAwareAspectJAutoProxyCreator【**InstantiationAwareBeanPostProcessor**
 
    2. AnnotationAwareAspectJAutoProxyCreator拦截组件的创建过程
 
-   3. 组件创建完之后，判断组件是否需要增强
+   3. 组件创建完之后，判断组件是否需要增强（包装）
 
-      是：切面的通知方法，包装成增强器（Advisor）;给业务逻辑组件创建一个代理对象（cglib）
+      如果是：切面的通知方法，包装成增强器（Advisor）。然后给业务逻辑组件（目标对象）创建一个代理对象（cglib、如果是接口JDK 动态代理）
 
 
-执行目标方法：由代理对象执行目标方法CglibAopProxy.intercept()；
+执行目标方法：由上面创建的代理对象执行目标方法CglibAopProxy.intercept()；
 
 1. 得到目标方法的拦截器链（增强器包装成拦截器MethodInterceptor）
 
@@ -394,9 +394,9 @@ AnnotationAwareAspectJAutoProxyCreator【**InstantiationAwareBeanPostProcessor**
 
 3. 效果：
 
-   正常执行：前置通知-》目标方法-》后置通知-》返回通知
+   正常执行：前置通知 - > 目标方法 - > 后置通知 - > 返回通知
 
-   出现异常：前置通知-》目标方法-》后置通知-》异常通知
+   出现异常：前置通知 - > 目标方法 - > 后置通知 - > 异常通知
 
 # 声明式事务
 

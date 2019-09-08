@@ -8,7 +8,7 @@
 - Exception vs Error
 - finally vs final vs finalize
 - final vs static
-- 四种引用：强引用、软引用、若引用、幻象引用的比较
+- 四种引用：强引用、软引用、弱引用、幻象引用的比较
 - 重载 vs 重写
 - 接口 vs 抽象类
 - 深克隆 vs 浅克隆
@@ -16,6 +16,16 @@
 - IO vs NIO vs AIO
 - 反射与动态代理
 - 序列化与反序列化（底层实现）
+
+# Java8新特性
+
+引入lambda表达式和函数式引用来简洁代码
+
+将Java内存中的永久代变为了元数据区
+
+接口有了默认方法和静态方法
+
+注解可以使用重复注解，也可以注解在任何地方
 
 # Object类及其方法
 
@@ -27,7 +37,101 @@ public final native Class<?> getClass();
 
 不能重写，实现在C++层
 
+还有hashCode（）计算对象的hash值。
 
+equals方法，判断两个对象是否相等的方法。true表示两个对象相等，false不等
+
+clone方法：是protected修饰的，如果子类不显示的重写clone，那么就无法使用clone。并且需要实现cloneable接口。clone方法可以实现浅拷贝和深拷贝，引用对象的不同。浅拷贝和原来的对象共用一个对象，而深拷贝新创建一个对象，二者引用的是不同对象。**使用clone拷贝一个对象既复杂又有风险，它也会抛出异常，并且还需要类型转换。可以使用拷贝构造函数或者拷贝工厂来拷贝一个对象**
+
+# 接口和抽象类
+
+接口：属性默认是public static final的，方法默认都是public abstract
+
+抽象类：本质还是一个类，所有可以有属性、方法、构造器。抽象类中可以有抽象方法，也可以没有。有抽象方法的类一定是抽象类。
+
+# 基本数据类型与引用数据类型
+
+## 包装类Wrapper
+
+### 基本数据类型、包装类与String类之间的转换
+
+```java
+//基本数据类型、包装类 ---> String类:调用String类的重载的valueOf(XXX x)方法
+int i1=10;
+String str1=i1+"";//"10"
+
+String str2=String.valueOf(i1);
+String str3=String.valueof(true);//"true"
+//String 类 ---> 基本数据类型、包装类：调用包装类的parseXxx(String str)方法
+int i3=Integer.parseInt(str2);
+```
+
+### Integer用==比较127相等而128不相等的原因
+
+自动装箱时，并不一定new出来一个新的对象。**Integer.class在装载（Java虚拟机启动）时，其内部类型IntegerCache的static块即开始执行，实例化并暂存数值在-128到127之间的Integer类型对象。当自动装箱int型值在-128到127之间时，即直接返回IntegerCache中暂存的Integer类型对象。**
+
+为什么Java这么设计？出于效率考虑，因为自动装箱经常遇到，尤其是小数值的自动装箱；而如果每次自动装箱都触发new，在堆中分配内存，就显得太慢了；所以不如预先将那些常用的值提前生成好，自动装箱时直接拿出来返回。哪些值是常用的？就是-128到127了
+
+不仅int，Java中的另外7种基本类型也都可以自动装箱和拆箱，其中也有用到缓存：
+
+| 基本类型 | 装箱类型  | 取值范围           | 是否缓存 | 缓存范围        |
+| :------- | :-------- | :----------------- | :------- | :-------------- |
+| byte     | Byte      | -128 ~ 127         | 是       | -128 ~ 127      |
+| short    | Short     | -2^15 ~ (2^15 - 1) | 是       | -128 ~ 127      |
+| int      | Integer   | -2^31 ~ (2^31 - 1) | 是       | -128 ~ 127      |
+| long     | Long      | -2^63 ~ (2^63 - 1) | 是       | -128～127       |
+| float    | Float     | --                 | 否       | --              |
+| double   | Double    | --                 | 否       | --              |
+| boolean  | Boolean   | true, false        | 是       | true, false     |
+| char     | Character | \u0000 ~ \uffff    | 是       | \u0000 ~ \u007f |
+
+> 注意
+>
+> ~~~java
+> Integer a=new Integer(1);
+> Integer b=new Integer(1);
+> //a!=b 原因在于new强制产生两个不同的对象，而没有使用缓存IntegerCache的对象
+> ~~~
+
+### String的相等问题的讨论
+
+`String s1="s"`首先判断常量池中是否有“s”，如果有直接返回。如果没有，则在heap中创建新的String对象，将其引用返回，同时将该引用添加至常量池中。
+
+~~~java
+String s1="s";
+String s2="s";//s1==s2,
+~~~
+
+`String s3=new String ("i")`立即在heap中创建一个String对象，然后将该对象的引用返回给用户。并不会主动将该引用放入到常量池中
+
+~~~java
+String s3=new String ("i");
+String s4=new String("i");//s3!=s4
+
+String s5=new String ("a");
+String s6="a";//s5!=s6
+~~~
+
+`intern()`作用：首先查看常量池有没有对象，如果没有，则在堆中新建一个对象，然后将新对象引用放入到常量池中;如果有，直接返回它的引用。
+
+~~~java
+String s7="b";
+s7=s7.intern();//intern
+String s8="b";//s7==s8
+~~~
+
+关于字符串的衔接操作时的小问题：
+
+~~~java
+String str1 = "hello quanjizhu";
+String str2 ="hello" +"quanjizhu";
+ String str3 ="hello "+"quanjizhu";//在编译的时候会优化成String str3 = "hello quanjizhu";所有str1和str2指向的是同一内存地址。
+
+String var = “quanjizhu“;
+String str4 = “hello “+var;//输出结果是false,证明了String str4 = “hello “+var;在内存堆中会重新分配空间，而不是让str4指向var的地址。
+str4 = (“hello“+var4).intern();
+//intern()方法告诉编译器将此结果放到String pool里，此,System.out.println(str1= =str4）输出结构将是true;
+~~~
 
 # String vs StringBuffer vs StringBuilder
 
@@ -106,6 +210,8 @@ StringBuffer线程安全，而StringBuilder线程非安全。多线程场景使�
 
 33~126为可显示的字符。其中字符0~9对应48~57，字符A~Z对应65~90，小写字母a~z对应97~122。
 
+（“789”）
+
 # 集合框架
 
 ## Vector vs ArrayList vs LinkedList
@@ -119,6 +225,8 @@ Vector具备数组索引快，增删慢的特性，因为增删都需要移动�
 ### ArrayList
 
 ArrayList底层也是基于数组实现的，默认大小10。但是ArrayList是线程不安全的，单线程下ArrayList的性能要比Vector更出色。扩容：Vecotr默认扩展容量是原来的一倍，而ArrayList是原来的1/2
+
+> 值得注意的是：每次进行增删操作时，除了扩容或者减少容量这样的常规操作外，还有一个变量在默默增加，它就是modCount。它是用来记录ArrayList结构变化的次数，起作用的地方是在使用iterator时，判断modCount是否等于ExpectedModCount，如果不等于将会抛出ConcurrentModificationException异常。也就是说设计者用modCount来规避多线程中的并发问题，由此也可以看出ArrayList是非线程安全的类
 
 ### LinkedList
 

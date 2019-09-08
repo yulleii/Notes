@@ -10,7 +10,7 @@
 - [x] <u>ThreadLocal</u>
 - [x] 线程通信
 - [x] 线程池（底层实现）
-- [ ] 死锁的出现场景、定位以及修复
+- [x] 死锁的出现场景、定位以及修复
 - [x] CAS 与 Atomic类型实现原理
 - [x] AQS：并发包基础技术
 - [x] Java并发包（java.util.concurrent及其子包）提供的并发工具类
@@ -18,8 +18,7 @@
   - **各种线程安全的容器（主要有四类：Queue,List,Set，Map），如：ConcurrentHashMap,ConcurrentSkipListMap,CopyOnWriteArrayList**
   - **各种并发队列的实现，如各种BlockingQueue的实现（ArrayBlockingQueue, LinkedBlockingQueue, SynchorousQueue, PriorityBlockingQueue,DelayQueue,LinkedTranferQueue）等。**
   - Executor框架与线程池
-
-
+- [ ] 有关多线程的问题：有没有在项目中使用到多线程？什么场景需要用到多线程？
 
 # 并发编程
 
@@ -121,7 +120,7 @@ CPU通过时间片分配算法来循环执行任务，当前任务执行一个�
 
 Java并发包提供读写锁的实现是ReentrantReadWriteLock。readLock()方法和writeLock（）方法
 
-依赖自定义同步器来实现。读写状态就是同步器的同步状态，只有用一个整型变量上维护多种状态：高16位读，低16位写。通过位运算来确定读写状态，写状态将高16位全部抹去，读状态等于无符号右移16位
+依赖自定义同步器来实现。读写状态就是同步器的同步状态，只有用一个整型变量上维护多种状态：高16位读，低16位写。通过位运算来确定读写状态，写状态将高16位全部抹去，读状态等于无符号右移16位(无符号右移>>>使用0填充最高位，>>使用最高位填充最高位)
 
 #### 写锁的获取与释放
 
@@ -171,6 +170,59 @@ Java并发包提供读写锁的实现是ReentrantReadWriteLock。readLock()方�
 
 但不支持写锁，因为如果读锁已被多个线程获取，其中任意线程成功获取了写锁并更新了数据，则其更新对其他获取读锁的线程是不可见的。
 
+锁降级的应用场景：对于数据比较敏感, 需要在对数据修改以后, 获取到修改后的值, 并进行接下来的其它操作
+
+## 死锁问题（待定）
+
+死锁是指两个或两个以上的进程在执行过程中，由于竞争资源或者由于彼此通信而造成的一种阻塞的现象，若无外力作用，它们都将无法推进下去。
+
+### 死锁检测
+
+#### 1.JStack
+
+ Jstack工具可以用于生成java虚拟机当前时刻的线程快照。**线程快照**是当前java虚拟机内每一条线程**正在执行**的**方法堆栈**的集合，生成线程快照的主要目的是定位线程出现长时间停顿的原因，如`线程间死锁`、`死循环`、`请求外部资源导致的长时间等待`等。 线程出现停顿的时候通过jstack来查看各个线程的调用堆栈，就可以知道没有响应的线程到底在后台做什么事情，或者等待什么资源。
+
+首先使用jps确定当前执行任务的进程号，然后使用`jstack -F 进程号`
+
+~~~java
+jonny@~$ jstack -F 1362
+Attaching to process ID 1362, please wait...
+Debugger attached successfully.
+Server compiler detected.
+JVM version is 23.21-b01
+Deadlock Detection:
+
+Found one Java-level deadlock:
+=============================
+
+"Thread-1":
+  waiting to lock Monitor@0x00007fea1900f6b8 (Object@0x00000007efa684c8, a java/lang/Object),
+  which is held by "Thread-0"
+"Thread-0":
+  waiting to lock Monitor@0x00007fea1900ceb0 (Object@0x00000007efa684d8, a java/lang/Object),
+  which is held by "Thread-1"
+
+Found a total of 1 deadlock.
+~~~
+
+#### 2.JConsole工具
+
+Jconsole是JDK自带的监控工具，在JDK/bin目录下可以找到。它用于连接正在运行的本地或者远程的JVM，对运行在Java应用程序的资源消耗和性能进行监控，并画出大量的图表，提供强大的可视化界面。而且本身占用的服务器内存很小，甚至可以说几乎不消耗。
+
+我们在命令行中敲入jconsole命令，会自动弹出以下对话框，选择进程1362，并点击“**链接**”。
+
+进入所检测的进程后，选择“线程”选项卡，并点击“检测死锁”
+
+### 死锁预防
+
+#### 1、以确定的顺序获得锁
+
+![](C:\Users\DELL\Desktop\Notes\Notes-JAVA\image\Snipaste_2019-09-02_16-27-53.png)
+
+#### 2.超时放弃
+
+当使用synchronized关键词提供的内置锁时，只要线程没有获得锁，那么就会永远等待下去，然而Lock接口提供了`boolean tryLock(long time, TimeUnit unit) throws InterruptedException`方法。该方法可以按照固定时长等待锁，因此线程可以在获取锁超时以后，主动释放之前已经获得的所有的锁。通过这种方式，也可以很有效地避免死锁。 
+
 ## CAS
 
 Compare and Swap：CAS操作需要输入两个数值，一个旧值和一个新值，在操作期间先比较旧值有没有发生变化，如果没有发生变化，才交换成新值，发生变化则不交换。
@@ -181,7 +233,7 @@ JVM中的CAS操作利用了处理器提供的CMPXCHG指令实现的。
 
 **使用循环CAS实现原子操作的三大问题**
 
-- ABA问题。如果一个原来是A，变成了B，又变成了C，那么使用CAS进行检查时会发现它的值没有发生变化，但是实际上发生变化了。解决思路：**使用版本号，在变量前面追加上版本号，**每次更新变量的时候把版本号加1，那么A-B-A就会变成1A-2B-3A。JDK的Atomic包提供了一个类AtomicStampedReference来解决ABA问题。
+- ABA问题。如果一个原来是A，变成了B，又变成了A，那么使用CAS进行检查时会发现它的值没有发生变化，但是实际上发生变化了。解决思路：**使用版本号，在变量前面追加上版本号，**每次更新变量的时候把版本号加1，那么A-B-A就会变成1A-2B-3A。JDK的Atomic包提供了一个类AtomicStampedReference来解决ABA问题。
 
   ![](image/Snipaste_2019-07-17_21-43-52.png)
 
@@ -1209,4 +1261,3 @@ FutureTask是Future的唯一实现类，FutureTask 实现了 RunnableFuture 接�
 FutureTask 可用于异步获取执行结果或取消执行任务的场景。当一个计算任务需要执行很长时间，那么就可以用 FutureTask 来封装这个任务，主线程在完成自己的任务之后再去获取结果。
 
 
-  
